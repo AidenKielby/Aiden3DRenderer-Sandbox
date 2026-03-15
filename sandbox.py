@@ -1,29 +1,37 @@
 import tkinter as tk
 import pygame
 import os
-import sys
+from aiden3drenderer import *
 
 # Create the main window
 window = tk.Tk()
+screen_w = window.winfo_screenwidth()
+screen_h = window.winfo_screenheight()
+window.geometry(f"{screen_w}x{screen_h}+0+0")
+window.geometry("1200x800+100+100")
+window.minsize(600, 400)
 
-embed = tk.Frame(window, width=640, height=480)
-embed.pack()
-window.update()
+text_widget = tk.Text(window, height=5)
+text_widget.pack(fill="x", pady=(8, 4))
+
+tk.Button(window, text="Get Text", command=lambda: get_text_input()).pack(fill="x", pady=(0, 8))
+
+embed = tk.Frame(window)
+embed.bind("<Button-1>", lambda e: embed.focus_set())
+embed.focus_set() 
+embed.pack(fill="both", expand=True)
+window.update_idletasks()
 
 os.environ['SDL_WINDOWID'] = str(embed.winfo_id())
 pygame.display.init()
-screen = pygame.display.set_mode((640, 480))
+screen = pygame.display.set_mode((max(1, embed.winfo_width()), max(1, embed.winfo_height())))
 code = ""
 
-window.title("Simple Tkinter Example") # Set window title
+window.title("Simple Tkinter Example") 
 def get_text_input():
     global code
     # Get all text from 1st char (1.0) to last (-1c removes newline)
     code = text_widget.get("1.0", "end-1c")
-
-
-text_widget = tk.Text(window, height=5, width=30)
-text_widget.pack()
 
 def pygame_loop():
     """Handles Pygame events and updates."""
@@ -38,5 +46,4 @@ def pygame_loop():
 # Start loops
 pygame_loop()
 
-tk.Button(window, text="Get Text", command=get_text_input).pack()
 window.mainloop()
