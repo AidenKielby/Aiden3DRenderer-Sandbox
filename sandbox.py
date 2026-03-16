@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import filedialog, messagebox
 import pygame
 import os
 from aiden3drenderer import *
@@ -18,6 +19,13 @@ PANEL_BG = "#171d24"
 TEXT_BG = "#0f141a"
 TEXT_FG = "#dce8f5"
 ACCENT = "#4fa3ff"
+ACCENT_HOVER = "#68b3ff"
+ACCENT_ACTIVE = "#3a8fe8"
+BORDER = "#253242"
+SUBTEXT = "#95a9bf"
+
+window.configure(bg=APP_BG)
+window.option_add("*Font", "{Segoe UI} 10")
 
 split = tk.PanedWindow(
     window,
@@ -26,10 +34,105 @@ split = tk.PanedWindow(
     bd=0,
     bg=APP_BG,
     relief="flat",
+    opaqueresize=True,
 )
 split.pack(fill="both", expand=True, padx=12, pady=12)
 
 top_panel = tk.Frame(split, bg=APP_BG)
+toolbar = tk.Frame(top_panel, bg=APP_BG)
+toolbar.pack(fill="x", pady=(0, 6))
+
+tk.Label(
+    toolbar,
+    text="Script Editor",
+    fg=SUBTEXT,
+    bg=APP_BG,
+    font=("Segoe UI Semibold", 10),
+).pack(side="left")
+
+run_button = tk.Button(
+    toolbar,
+    text="Run Script",
+    command=lambda: get_text_input(),
+    bg=ACCENT,
+    fg="#ffffff",
+    activebackground=ACCENT_ACTIVE,
+    activeforeground="#ffffff",
+    relief="flat",
+    bd=0,
+    padx=14,
+    pady=7,
+    font=("Segoe UI Semibold", 10),
+    cursor="hand2",
+)
+run_button.pack(side="right")
+
+run_button.bind("<Enter>", lambda e: run_button.config(bg=ACCENT_HOVER))
+run_button.bind("<Leave>", lambda e: run_button.config(bg=ACCENT))
+
+# Save / Load buttons
+def _make_tool_button(parent, text, cmd):
+    b = tk.Button(
+        parent,
+        text=text,
+        command=cmd,
+        bg=APP_BG,
+        fg=TEXT_FG,
+        activebackground=BORDER,
+        relief="flat",
+        bd=0,
+        padx=8,
+        pady=6,
+        cursor="hand2",
+        font=("Segoe UI", 9),
+    )
+    b.bind("<Enter>", lambda e: b.config(bg="#11151a"))
+    b.bind("<Leave>", lambda e: b.config(bg=APP_BG))
+    return b
+
+def save_script():
+    prev = text_widget.cget("state")
+    try:
+        if prev == "disabled":
+            text_widget.config(state="normal")
+        data = text_widget.get("1.0", "end-1c")
+        path = filedialog.asksaveasfilename(
+            defaultextension=".py",
+            filetypes=[("Python files", "*.py"), ("All files", "*.*")],
+            title="Save script as...",
+        )
+        if not path:
+            return
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(data)
+        messagebox.showinfo("Saved", f"Script saved to:\n{path}")
+    finally:
+        text_widget.config(state=prev)
+
+def load_script():
+    path = filedialog.askopenfilename(
+        defaultextension=".py",
+        filetypes=[("Python files", "*.py"), ("All files", "*.*")],
+        title="Open script...",
+    )
+    if not path:
+        return
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = f.read()
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to open file:\n{e}")
+        return
+    text_widget.config(state="normal")
+    text_widget.delete("1.0", "end")
+    text_widget.insert("1.0", data)
+    messagebox.showinfo("Loaded", f"Script loaded from:\n{path}")
+
+load_btn = _make_tool_button(toolbar, "Load", load_script)
+load_btn.pack(side="right", padx=(6, 0))
+save_btn = _make_tool_button(toolbar, "Save", save_script)
+save_btn.pack(side="right", padx=(6, 0))
+
 text_widget = tk.Text(
     top_panel,
     height=5,
@@ -40,29 +143,22 @@ text_widget = tk.Text(
     selectforeground="#ffffff",
     relief="flat",
     highlightthickness=1,
-    highlightbackground="#253242",
+    highlightbackground=BORDER,
     highlightcolor=ACCENT,
     padx=10,
     pady=8,
     font=("Segoe UI", 11),
+    undo=True,
+    autoseparators=True,
+    maxundo=-1,
 )
-text_widget.pack(fill="both", expand=True, pady=(0, 6))
+text_widget.pack(fill="both", expand=True)
 
-tk.Button(
-    top_panel,
-    text="Run Script",
-    command=lambda: get_text_input(),
-    bg=ACCENT,
-    fg="#ffffff",
-    activebackground="#3a8fe8",
-    activeforeground="#ffffff",
-    relief="flat",
-    bd=0,
-    padx=12,
-    pady=8,
-    font=("Segoe UI Semibold", 10),
-    cursor="hand2",
-).pack(fill="x")
+# Informational note about renderer limitations
+note_text = (
+    "Note: Some visuals may appear warped; changing FOV may not take effect "
+)
+tk.Label(top_panel, text=note_text, fg=SUBTEXT, bg=APP_BG, wraplength=900, justify="left").pack(fill="x", pady=(8, 4))
 
 embed = tk.Frame(
     split,
@@ -70,9 +166,10 @@ embed = tk.Frame(
     bd=1,
     relief="solid",
     highlightthickness=1,
-    highlightbackground="#253242",
+    highlightbackground=BORDER,
+    highlightcolor=ACCENT,
 )
-embed.bind("<Button-1>", lambda e: focus_pygame())
+embed.bind("<ButtonRelease-1>", lambda e: focus_pygame())
 embed.focus_set()
 
 split.add(top_panel, minsize=120)
@@ -98,7 +195,9 @@ renderer.render_type = renderer_type.MESH
 
 
 text_widget.insert("1.0", base_code)
-exec_env = {"renderer": None, "embed": embed, "Renderer3D": Renderer3D, "renderer_type": renderer_type}
+exec_env = {"renderer": None, "embed": embed, "Renderer3D": Renderer3D, "renderer_type": renderer_type, "obj_loader": obj_loader, 
+            "register_shape": register_shape, "Camera": Camera, "physics": physics, "dae_loader": dae_loader, "VideoRenderer3D": VideoRenderer3D, 
+            "VideoRendererObject": VideoRendererObject, "Button": Button}
 
 TK_TO_PG = {
     "w": pygame.K_w, "a": pygame.K_a, "s": pygame.K_s, "d": pygame.K_d,
