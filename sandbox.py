@@ -8,7 +8,6 @@ import ctypes
 window = tk.Tk()
 screen_w = window.winfo_screenwidth()
 screen_h = window.winfo_screenheight()
-window.geometry(f"{screen_w}x{screen_h}+0+0")
 window.geometry("1200x800+100+100")
 window.minsize(600, 400)
 window.title("Aiden 3D Renderer Sandbox")
@@ -20,10 +19,19 @@ TEXT_BG = "#0f141a"
 TEXT_FG = "#dce8f5"
 ACCENT = "#4fa3ff"
 
-window.configure(bg=APP_BG)
-
-text_widget = tk.Text(
+split = tk.PanedWindow(
     window,
+    orient="vertical",
+    sashwidth=8,
+    bd=0,
+    bg=APP_BG,
+    relief="flat",
+)
+split.pack(fill="both", expand=True, padx=12, pady=12)
+
+top_panel = tk.Frame(split, bg=APP_BG)
+text_widget = tk.Text(
+    top_panel,
     height=5,
     bg=TEXT_BG,
     fg=TEXT_FG,
@@ -38,10 +46,10 @@ text_widget = tk.Text(
     pady=8,
     font=("Segoe UI", 11),
 )
-text_widget.pack(fill="x", padx=12, pady=(12, 6))
+text_widget.pack(fill="both", expand=True, pady=(0, 6))
 
 tk.Button(
-    window,
+    top_panel,
     text="Run Script",
     command=lambda: get_text_input(),
     bg=ACCENT,
@@ -54,12 +62,23 @@ tk.Button(
     pady=8,
     font=("Segoe UI Semibold", 10),
     cursor="hand2",
-).pack(fill="x", padx=12, pady=(0, 10))
+).pack(fill="x")
 
-embed = tk.Frame(window, bg=PANEL_BG, bd=1, relief="solid", highlightthickness=1, highlightbackground="#253242")
+embed = tk.Frame(
+    split,
+    bg=PANEL_BG,
+    bd=1,
+    relief="solid",
+    highlightthickness=1,
+    highlightbackground="#253242",
+)
 embed.bind("<Button-1>", lambda e: focus_pygame())
-embed.focus_set() 
-embed.pack(fill="both", expand=True, padx=12, pady=(0, 12))
+embed.focus_set()
+
+split.add(top_panel, minsize=120)
+split.add(embed, minsize=200)
+window.after(50, lambda: split.sash_place(0, 0, 220))
+
 window.update_idletasks()
 
 os.environ['SDL_WINDOWID'] = str(embed.winfo_id())
@@ -121,10 +140,28 @@ window.bind_all("<KeyRelease>", on_key_release)
 
 def get_text_input():
     global code
-    # Get all text from 1st char (1.0) to last (-1c removes newline)
     code = text_widget.get("1.0", "end-1c")
-    
-    exec(code, exec_env)
+
+    # Stop/reset previous renderer so rerun is visible
+    old_renderer = exec_env.get("renderer")
+    if old_renderer is not None:
+        # If your renderer has cleanup/shutdown methods, call them here.
+        for method_name in ("cleanup", "shutdown", "close", "quit"):
+            method = getattr(old_renderer, method_name, None)
+            if callable(method):
+                try:
+                    method()
+                except Exception:
+                    pass
+                break
+
+    exec_env["renderer"] = None
+
+    try:
+        exec(code, exec_env)
+        #focus_pygame()  # put focus back to pygame after rerun
+    except Exception as e:
+        print("Script error:", e)
 
 def enable_text_editing(event=None):
     text_widget.config(state="normal")
@@ -150,6 +187,6 @@ text_widget.bind("<Button-1>", enable_text_editing)
 # Start loops
 pygame_loop()
 
-window.after(200, focus_pygame)
+#window.after(200, focus_pygame)
 
 window.mainloop()
