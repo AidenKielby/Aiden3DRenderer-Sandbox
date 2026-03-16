@@ -11,16 +11,55 @@ screen_h = window.winfo_screenheight()
 window.geometry(f"{screen_w}x{screen_h}+0+0")
 window.geometry("1200x800+100+100")
 window.minsize(600, 400)
+window.title("Aiden 3D Renderer Sandbox")
 
-text_widget = tk.Text(window, height=5)
-text_widget.pack(fill="x", pady=(8, 4))
+# Visual styling only (no behavior changes)
+APP_BG = "#101418"
+PANEL_BG = "#171d24"
+TEXT_BG = "#0f141a"
+TEXT_FG = "#dce8f5"
+ACCENT = "#4fa3ff"
 
-tk.Button(window, text="Get Text", command=lambda: get_text_input()).pack(fill="x", pady=(0, 8))
+window.configure(bg=APP_BG)
 
-embed = tk.Frame(window)
+text_widget = tk.Text(
+    window,
+    height=5,
+    bg=TEXT_BG,
+    fg=TEXT_FG,
+    insertbackground=TEXT_FG,
+    selectbackground=ACCENT,
+    selectforeground="#ffffff",
+    relief="flat",
+    highlightthickness=1,
+    highlightbackground="#253242",
+    highlightcolor=ACCENT,
+    padx=10,
+    pady=8,
+    font=("Segoe UI", 11),
+)
+text_widget.pack(fill="x", padx=12, pady=(12, 6))
+
+tk.Button(
+    window,
+    text="Run Script",
+    command=lambda: get_text_input(),
+    bg=ACCENT,
+    fg="#ffffff",
+    activebackground="#3a8fe8",
+    activeforeground="#ffffff",
+    relief="flat",
+    bd=0,
+    padx=12,
+    pady=8,
+    font=("Segoe UI Semibold", 10),
+    cursor="hand2",
+).pack(fill="x", padx=12, pady=(0, 10))
+
+embed = tk.Frame(window, bg=PANEL_BG, bd=1, relief="solid", highlightthickness=1, highlightbackground="#253242")
 embed.bind("<Button-1>", lambda e: focus_pygame())
 embed.focus_set() 
-embed.pack(fill="both", expand=True)
+embed.pack(fill="both", expand=True, padx=12, pady=(0, 12))
 window.update_idletasks()
 
 os.environ['SDL_WINDOWID'] = str(embed.winfo_id())
@@ -80,7 +119,6 @@ def on_key_release(e):
 window.bind_all("<KeyPress>", on_key_press)
 window.bind_all("<KeyRelease>", on_key_release)
 
-window.title("Simple Tkinter Example") 
 def get_text_input():
     global code
     # Get all text from 1st char (1.0) to last (-1c removes newline)
@@ -88,7 +126,16 @@ def get_text_input():
     
     exec(code, exec_env)
 
+def enable_text_editing(event=None):
+    text_widget.config(state="normal")
+    text_widget.focus_set()
+
+def disable_text_editing():
+    text_widget.config(state="disabled")
+    embed.focus_set()
+
 def focus_pygame():
+    disable_text_editing() 
     hwnd = pygame.display.get_wm_info()["window"]
     ctypes.windll.user32.SetFocus(hwnd)
 
@@ -97,6 +144,8 @@ def pygame_loop():
     if r is not None:
         r.loopable_run()  # renderer handles keyboard/mouse/events
     window.after(16, pygame_loop)
+
+text_widget.bind("<Button-1>", enable_text_editing)
 
 # Start loops
 pygame_loop()
